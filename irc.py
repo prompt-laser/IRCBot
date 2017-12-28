@@ -2,9 +2,12 @@ import glob
 import socket
 import importlib
 
-def load_plugin(name):
+def reload_plugin(name):
 	mod = __import__("module_%s" % name)
 	importlib.reload(mod)
+
+def load_plugin(name):
+	mod = __import__("module_%s" % name)
 	return mod
 
 def call_plugin(name, *args, **kwargs):
@@ -23,17 +26,20 @@ def plugin_get_about(name):
 	plugin = load_plugin(name)
 	return plugin.plugin_about()
 	
-def load_plugins():
+def load_plugins(*args, **kwargs):
 	print("Finding plugins...")
-	mods = glob.glob(path_to_main_program_and_modules)					#	"c:\\python\\module_*.py"
+	mods = glob.glob("c:\\python\\module_*.py")
 	modList = []
 
 	print("Loading plugins...")
 	i = 0
 	for mod in mods:
-		mods[i] = mods[i].replace(path_to_main_program_and_modules, "")	#	"c:\\python\\module_"
+		mods[i] = mods[i].replace("c:\\python\\module_", "")
 		mods[i] = mods[i].replace(".py", "")
-		modList.append(Plugin(mods[i]))
+		if(kwargs.get('reload')):
+			modList.append(Plugin(mods[i], reload=True))
+		else:
+			modList.append(Plugin(mods[i]))
 		print("Loaded module " + modList[i].name + "...")
 		i = i + 1
 	print("Loaded " + str(i) + " plugins")
@@ -47,6 +53,8 @@ class Plugin(object):
 	
 	def __init__(self, name):
 		self.name = name
+		if(kwargs.get('reload')):
+			reload_plugin(name)
 		self.trigger = plugin_get_trigger(name)
 		self.about = plugin_get_about(name)
 		self.help = plugin_get_help(name)
@@ -63,11 +71,11 @@ modList = load_plugins()
 HOSTNAME = 'chat.freenode.net'
 PORT = 6667
 BUFFER_SIZE = 1024
-COMMAND_CHAR = command_character_string # "@"
-CHANNEL = channel_string				#	"#freenode"
-USER = user_string						#	"guest"
-NICK = nick_string						#	"guest"
-REAL_NAME = real_name_string			#	"this is my real name"
+COMMAND_CHAR = command_character_string 		# "@"
+CHANNEL = channel_string				# "#freenode"
+USER = user_string					# "guest"
+NICK = nick_string					# "guest"
+REAL_NAME = real_name_string				# "this is my real name"
 
 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 s.connect((HOSTNAME, PORT))
@@ -111,7 +119,7 @@ while(True):
 					for mod in modList:
 						s.send(bytes("PRIVMSG " + CHANNEL + " :" + mod.name + " - " + mod.about + "\r\n", "ASCII"))
 				elif(command.lower().find("reload") != -1):
-					modList = load_plugins()
+					modList = load_plugins(reload=True)
 				else:
 					for mod in modList:
 						if(mod.trigger == command.lower()):
@@ -124,4 +132,4 @@ while(True):
 								try:
 									s.send(bytes("PRIVMSG " + CHANNEL + " :" + call_plugin(mod.name, arguments) + "\r\n", "ASCII"))
 								except Exception as e:
-									s.send(bytes("PRIVMSG " + CHANNEL + " :Well, this is emberassing...\r\n", "ASCII"))
+									s.send(bytes("PRIVMSG " + CHANNEL + " :Well, this is embarassing...\r\n", "ASCII"))
